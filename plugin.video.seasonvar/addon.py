@@ -237,7 +237,7 @@ class Seasonvar:
             return
 
         page = req.text
-        series = re.findall(r'"file":"(http://[A-Za-z0-9\-\._\/]+)"', page)
+        series = re.findall(r'"file":"(http://[A-Za-z0-9\-\._\/,\[\]]+)"', page)
 
         eps = 0
         for x in series:
