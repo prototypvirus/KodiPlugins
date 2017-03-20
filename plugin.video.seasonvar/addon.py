@@ -33,6 +33,7 @@ class Seasonvar:
         self.inext = os.path.join(self.path, 'resources/icons/next.png')
         self.debug = False
         self.history = []
+        self.loadHistory()
 
     def main(self):
         self.log("Addon: %s"  % self.id)
@@ -203,7 +204,7 @@ class Seasonvar:
         title = title[0]
         self.addHistory(serial, title)
         data = re.findall(r'<div class=".+seasonlist">([^\$]+)<\/h2>', page)
-        seasons = re.findall(r'href="\/(serial-\d+-[^\.]+.html)".+(\d+)[^<]', data[0])
+        seasons = re.findall(r'href="\/(serial-\d+-[^\.]+.html)".+\s+(\d+)[^<]', data[0])
 
         for x in seasons:
             uri = sys.argv[0] + '?mode=%s&season=%s' % ("series", x[0])
