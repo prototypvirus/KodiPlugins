@@ -86,7 +86,7 @@ class Seasonvar:
             return
 
         page = req.text
-        dates = re.findall(r'<div class="film-list-block-title">\s+<div class="ff1">([0-9\.]+)</div>', page)
+        dates = re.findall(r'<div class="news-head">\s+([0-9\.]+)\s+<\/div>', page)
 
         for x in dates:
             uri = sys.argv[0] + '?mode=%s&date=%s' % ('updates', x)
@@ -131,15 +131,20 @@ class Seasonvar:
             xbmc.executebuiltin("XBMC.Notification(%s,%s, %s)" % ("Error", 'Can\'t get page!', str(10 * 1000)))
             return
 
+        rStart = re.compile(r'<div class="news-head">\s+'+date+'\s+<\/div>')
+        rEnd = re.compile(r'<\/div>\s+<\/a>\s+<\/div>')
         page = req.text
-        reg = '<div class="ff1">'+date+'</div>[A-Za-z0-9\s<=>"\'\/:;-]+(?:<div class="film-list-item">[A-Za-z0-9\s<=>"\'\/\-_\.]+.+</span>\s*</div>\s+)+</div>';
-        listblock = re.findall(reg, page)
-        links = re.findall(r'<a\shref="\/([A-Za-z0-9\-_\.]+)"\sclass="film-list-item-link">\s+([^<]+)<\/a>\s*([^<]+)?<span[^>]*>([^<]+)<\/span>', listblock[0])
+        pStart = rStart.search(page)
+        page = page[pStart.end():]
+        pEnd = rEnd.search(page)
+        page = page[:pEnd.start()]
+        links = re.findall(r'<a\shref="(\/[a-zA-Z0-9\-_\.]+)"\s+data-id="\d+">\s+<div\sclass="news-w">\s+<div\sclass="news_n">\s+([\s\w,:\(\)\-_\.]+(?<!\s\s))\s+<\/div>\s+(\([\w\s\-_\.]+\))?\s+<span class="news_s">([\w\s\-_\.\(\),]+)<\/span>', page, re.UNICODE)
 
         for x in links:
             uri = sys.argv[0] + '?mode=%s&serial=%s' % ("seasons", x[0])
-            upd = x[2] if len(x) == 3 else x[2]+' '+x[3]
-            item = xbmcgui.ListItem("%s [COLOR=FF939393]%s[/COLOR]" % (x[1], upd), thumbnailImage=self.icon)
+            upd = x[2].strip() if len(x) == 3 else x[2].strip()+' '+x[3].strip()
+            item = xbmcgui.ListItem("%s [COLOR=FF939393]%s[/COLOR]" % (x[1].strip(), upd), thumbnailImage=self.icon)
+            #item = xbmcgui.ListItem(label=x[1], label2=upd, thumbnailImage=self.icon)
             xbmcplugin.addDirectoryItem(self.handle, uri, item, True)
 
         xbmc.executebuiltin('Container.SetViewMode(52)')
@@ -200,10 +205,7 @@ class Seasonvar:
             return
 
         page = req.text
-        title = re.findall(r'<title>([^<]+)<\/title>', page)
-        title = title[0]
-        self.addHistory(serial, title)
-        data = re.findall(r'<div class=".+seasonlist">([^\$]+)<\/h2>', page)
+        data = re.findall(r'<li class="act">([^\$]+)<\/li>', page)
         seasons = re.findall(r'href="\/(serial-\d+-[^\.]+.html)".+\s+(\d+)[^<]', data[0])
 
         for x in seasons:
@@ -222,14 +224,24 @@ class Seasonvar:
             return
 
         page = req.text
-        data = re.findall(r"var\s?id\s?=\s?\"(\d+)\";\n.+var\s?serial_id\s?=\s?\"(\d+)\";\n.+var\s?secureMark\s?=\s?\"([a-z0-9]+)\";", page)
-        data = data[0]
-        req = requests.post('http://seasonvar.ru/player.php', data={'id': data[0], 'secure': data[2], 'serial': data[1], 'type': 'html5'}, cookies={'html5default': '1'}, headers={'Referer':"http://seasonvar.ru/%s" % (season), 'X-Requested-With': 'XMLHttpRequest'})
+        timeAndSecure = re.findall(r"var\s+data4play\s+=\s+{\s+'secureMark':\s+'([a-zA-Z0-9]+)',\s+'time':\s+(\d+)\s+}", page)
+        timeAndSecure = timeAndSecure[0]
+        IDs = re.findall(r"data-id-(season|serial)=\"(\d+)\"", page)
+        cont = {
+            'secure': timeAndSecure[0],
+            'time': timeAndSecure[1],
+            'id': IDs[0][1] if IDs[0][0] == 'season' else IDs[1][1],
+            'serial': IDs[0][1] if IDs[0][0] == 'serial' else IDs[1][1],
+            'type': 'html5'
+        }
+        title = re.findall(r'<title>([^<]+)<\/title>', page)
+        self.addHistory(IDs[0][1] if IDs[0][0] == 'serial' else IDs[1][1], season, title[0])
+        req = requests.post('http://seasonvar.ru/player.php', data=cont, cookies={'html5default': '1'}, headers={'Referer':"http://seasonvar.ru/%s" % (season), 'X-Requested-With': 'XMLHttpRequest'})
         if not req.status_code == 200:
             xbmc.executebuiltin("XBMC.Notification(%s,%s, %s)" % ('Error', 'Can\'t get page!', str(10 * 1000)))
             return
         page = req.text
-        playlistFile = re.findall(r"var\spl0\s?=\s?\"([A-Za-z0-9/\.\?\=]+)\";", page);
+        playlistFile = re.findall(r"var\s+pl\s+=\s+{'0':\s+\"(\/[A-Za-z0-9\/\.\?=]+)\"};", page);
 
         url = "http://seasonvar.ru/%s" % (playlistFile[0])
         req = requests.get(url, cookies={'html5default': '1'})
@@ -237,16 +249,16 @@ class Seasonvar:
             xbmc.executebuiltin("XBMC.Notification(%s,%s, %s)" % ("Error", 'Can\'t get page!', str(10 * 1000)))
             return
 
-        page = req.text
-        series = re.findall(r'"file":"(http://[A-Za-z0-9\-\._\/,\[\]]+)"', page)
+        #page = req.text
+        #series = re.findall(r'"file":"(http://[A-Za-z0-9\-\._\/,\[\]]+)"', page)
+        series = json.loads(req.text)
+        series = series['playlist']
 
-        eps = 0
         for x in series:
-            eps+=1
-            item = xbmcgui.ListItem("Episode %d" % (eps), thumbnailImage=self.icon)
+            item = xbmcgui.ListItem(x['comment'][:-4] if x['comment'].endswith('<br>') else x['comment'], thumbnailImage=self.icon)
             item.setInfo(type='Video', infoLabels={})
             item.setProperty("IsPlayable", "true")
-            xbmcplugin.addDirectoryItem(self.handle, x, item, False)
+            xbmcplugin.addDirectoryItem(self.handle, x['file'], item, False)
 
         xbmc.executebuiltin('Container.SetViewMode(52)')
         xbmcplugin.endOfDirectory(self.handle, True)
@@ -268,8 +280,13 @@ class Seasonvar:
             data = { 'history': self.history }
             json.dump(data, fp)
 
-    def addHistory(self, link, text):
-        item = { 'link': link, 'text': text }
+    def addHistory(self, id, link, text):
+        self.history = [i for i in self.history if not i['id'] == id]
+        item = {
+            'id': id,
+            'link': link,
+            'text': text
+        }
         self.history.insert(0, item)
         self.history = self.history[0:10]
         self.saveHistory()
