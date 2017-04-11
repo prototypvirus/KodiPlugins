@@ -255,7 +255,7 @@ class Seasonvar:
         series = series['playlist']
 
         for x in series:
-            item = xbmcgui.ListItem(x['comment'][:-4] if x['comment'].endswith('<br>') else x['comment'], thumbnailImage=self.icon)
+            item = xbmcgui.ListItem(re.sub(r'<\/?br>', ' ', x['comment']), thumbnailImage=self.icon)
             item.setInfo(type='Video', infoLabels={})
             item.setProperty("IsPlayable", "true")
             xbmcplugin.addDirectoryItem(self.handle, x['file'], item, False)
