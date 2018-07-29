@@ -13,6 +13,7 @@ import XbmcHelpers
 import requests
 import re
 import json
+import base64
 common = XbmcHelpers
 
 class Seasonvar:
@@ -205,13 +206,15 @@ class Seasonvar:
             return
 
         page = req.text
-        data = re.findall(r'<li class="act">([^\$]+)<\/li>', page)
+#        data = re.findall(r'<li class="act">([^\$]+)<\/li>', page)
+        data = re.findall(r'<li class="act">([^\$]+)<\/ul>\s+<\/div>\s+<div\sclass="content-wrap"', page)
         seasons = re.findall(r'href="\/(serial-\d+-[^\.]+.html)".+\s+(\d+)[^<]', data[0])
-
+        cc = 1
         for x in seasons:
             uri = sys.argv[0] + '?mode=%s&season=%s' % ("series", x[0])
-            item = xbmcgui.ListItem("Season %s" % (x[1]), thumbnailImage=self.icon)
+            item = xbmcgui.ListItem("Season %s" % (cc), thumbnailImage=self.icon)
             xbmcplugin.addDirectoryItem(self.handle, uri, item, True)
+            cc = cc + 1
 
         xbmc.executebuiltin('Container.SetViewMode(52)')
         xbmcplugin.endOfDirectory(self.handle, True)
@@ -252,13 +255,15 @@ class Seasonvar:
         #page = req.text
         #series = re.findall(r'"file":"(http://[A-Za-z0-9\-\._\/,\[\]]+)"', page)
         series = json.loads(req.text)
-        series = series['playlist']
+        #print(series)
+        #series = series['playlist']
 
         for x in series:
+            #print(self.decodeUrl(x['file']))
             item = xbmcgui.ListItem(re.sub(r'<\/?br>', ' ', x['comment']), thumbnailImage=self.icon)
             item.setInfo(type='Video', infoLabels={})
             item.setProperty("IsPlayable", "true")
-            xbmcplugin.addDirectoryItem(self.handle, x['file'], item, False)
+            xbmcplugin.addDirectoryItem(self.handle, self.decodeUrl(x['file']), item, False)
 
         xbmc.executebuiltin('Container.SetViewMode(52)')
         xbmcplugin.endOfDirectory(self.handle, True)
@@ -266,8 +271,11 @@ class Seasonvar:
     def log(self, msg):
         pass
 
+    def decodeUrl(self, url):
+        return base64.b64decode(url[2:].replace('//b2xvbG8=', ''))
+
     def loadHistory(self):
-	path = xbmc.translatePath(self.profile)
+        path = xbmc.translatePath(self.profile)
         if not os.path.exists(os.path.join(path, 'history.json')):
             return
         with open(os.path.join(path, 'history.json'), 'r') as fp:
@@ -275,7 +283,7 @@ class Seasonvar:
             self.history = data['history']
 
     def saveHistory(self):
-	path = xbmc.translatePath(self.profile)
+        path = xbmc.translatePath(self.profile)
         with open(os.path.join(path, 'history.json'), 'w') as fp:
             data = { 'history': self.history }
             json.dump(data, fp)
@@ -296,7 +304,7 @@ class Seasonvar:
         self.saveHistory()
 
     def listHistory(self):
-	self.loadHistory()
+        self.loadHistory()
         for x in self.history:
             uri = sys.argv[0] + '?mode=%s&serial=%s' % ("seasons", x['link'])
             item = xbmcgui.ListItem(x['text'], thumbnailImage=self.icon)
@@ -308,6 +316,7 @@ class Seasonvar:
 
         xbmc.executebuiltin('Container.SetViewMode(52)')
         xbmcplugin.endOfDirectory(self.handle, True)
+
 
 f = Seasonvar()
 f.main()
