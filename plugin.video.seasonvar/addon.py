@@ -260,7 +260,7 @@ class Seasonvar:
 
         for x in series:
             #print(self.decodeUrl(x['file']))
-            item = xbmcgui.ListItem(re.sub(r'<\/?br>', ' ', x['comment']), thumbnailImage=self.icon)
+            item = xbmcgui.ListItem(re.sub(r'<\/?br>', ' ', x['title']), thumbnailImage=self.icon)
             item.setInfo(type='Video', infoLabels={})
             item.setProperty("IsPlayable", "true")
             xbmcplugin.addDirectoryItem(self.handle, self.decodeUrl(x['file']), item, False)
