@@ -16,6 +16,8 @@ import json
 import base64
 common = XbmcHelpers
 
+useragent = 'Mozilla/5.0 (X11; Ubuntu; Linux i686; rv:76.0) Gecko/20100101 Firefox/76.0'
+
 class Seasonvar:
     def __init__(self):
         self.id = 'plugin.video.seasonvar'
@@ -81,7 +83,7 @@ class Seasonvar:
         xbmcplugin.addDirectoryItem(self.handle, uri, item, True)
 
         url = 'http://seasonvar.ru/'
-        req = requests.get(url)
+        req = requests.get(url, headers={'User-Agent': useragent})
         if not req.status_code == 200:
             xbmc.executebuiltin("XBMC.Notification(%s,%s, %s)" % ("Error", 'Can\'t get page!', str(10 * 1000)))
             return
@@ -127,7 +129,7 @@ class Seasonvar:
 
     def listUpdates(self, date):
         url = 'http://seasonvar.ru/'
-        req = requests.get(url)
+        req = requests.get(url, headers={'User-Agent': useragent})
         if not req.status_code == 200:
             xbmc.executebuiltin("XBMC.Notification(%s,%s, %s)" % ("Error", 'Can\'t get page!', str(10 * 1000)))
             return
@@ -167,7 +169,7 @@ class Seasonvar:
         'filter[sub]': ''
         }
 
-        req = requests.post(url, data=postData);
+        req = requests.post(url, data=postData, headers={'User-Agent': useragent});
         if not req.status_code == 200:
             xbmc.executebuiltin("XBMC.Notification(%s,%s, %s)" % ("Error", 'Can\'t get page!', str(10 * 1000)))
             return
@@ -200,7 +202,7 @@ class Seasonvar:
 
     def listSeasons(self, serial):
         url = 'http://seasonvar.ru/%s' % (serial)
-        req = requests.get(url)
+        req = requests.get(url, headers={'User-Agent': useragent})
         if not req.status_code == 200:
             xbmc.executebuiltin("XBMC.Notification(%s,%s, %s)" % ("Error", 'Can\'t get page!', str(10 * 1000)))
             return
@@ -221,13 +223,13 @@ class Seasonvar:
 
     def listSeries(self, season):
         url = "http://seasonvar.ru/%s" % (season)
-        req = requests.get(url, cookies={'html5default': '1'})
+        req = requests.get(url, cookies={'html5default': '1'}, headers={'User-Agent': useragent})
         if not req.status_code == 200:
             xbmc.executebuiltin("XBMC.Notification(%s,%s, %s)" % ("Error", 'Can\'t get page!', str(10 * 1000)))
             return
 
         page = req.text
-        timeAndSecure = re.findall(r"var\s+data4play\s+=\s+{\s+'secureMark':\s+'([a-zA-Z0-9]+)',\s+'time':\s+(\d+)\s+}", page)
+        timeAndSecure = re.findall(r"var\s+data4play\s+=\s+{\s+'secureMark':\s+'([a-zA-Z0-9]+)',\s+'time':\s+(\d+),\s+'addr':\s+(\d+)\s+}", page)
         timeAndSecure = timeAndSecure[0]
         IDs = re.findall(r"data-id-(season|serial)=\"(\d+)\"", page)
         cont = {
@@ -239,7 +241,7 @@ class Seasonvar:
         }
         title = re.findall(r'<title>([^<]+)<\/title>', page)
         self.addHistory(IDs[0][1] if IDs[0][0] == 'serial' else IDs[1][1], season, title[0])
-        req = requests.post('http://seasonvar.ru/player.php', data=cont, cookies={'html5default': '1'}, headers={'Referer':"http://seasonvar.ru/%s" % (season), 'X-Requested-With': 'XMLHttpRequest'})
+        req = requests.post('http://seasonvar.ru/player.php', data=cont, cookies={'html5default': '1'}, headers={'Referer':"http://seasonvar.ru/%s" % (season), 'X-Requested-With': 'XMLHttpRequest', 'User-Agent': useragent})
         if not req.status_code == 200:
             xbmc.executebuiltin("XBMC.Notification(%s,%s, %s)" % ('Error', 'Can\'t get page!', str(10 * 1000)))
             return
@@ -284,6 +286,8 @@ class Seasonvar:
 
     def saveHistory(self):
         path = xbmc.translatePath(self.profile)
+        if not os.path.exists(path):
+            os.makedirs(path)
         with open(os.path.join(path, 'history.json'), 'w') as fp:
             data = { 'history': self.history }
             json.dump(data, fp)
